@@ -19,6 +19,7 @@ import os
 #deals with kernel death
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
+#csv file is 150mb which is too large to upload, contact me for the data
 dataFrame = pd.read_csv('/Users/KushDani/Downloads/creditcard.csv')
 print(dataFrame.head())
 
