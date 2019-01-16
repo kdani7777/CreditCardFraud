@@ -9,7 +9,7 @@ Created on Wed Jan  2 22:19:37 2019
 import tensorflow as tf
 from tensorflow import keras
 from keras.wrappers.scikit_learn import KerasClassifier
-from keras.optimizers import SGD
+from keras import backend as K
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -87,6 +87,8 @@ def create_model(unitsL1=16, unitsL3=8, unitsL5=1,
                  #optimizer=tf.train.AdamOptimizer(0.0005),
                  lr=0.0005):
     
+    K.clear_session()
+    
     model = keras.Sequential()
 
     model.add(keras.layers.Dense(unitsL1,
@@ -114,20 +116,19 @@ def create_model(unitsL1=16, unitsL3=8, unitsL5=1,
 model = KerasClassifier(build_fn=create_model, batch_size=50, epochs=50)
 
 #GRID-SEARCH PREPARATION
-activation =  ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear'] # softmax, softplus, softsign
-#need for checking depends on optimizer 
+activation =  ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear', 'softmax', 'softplus', 'softsign']
+#need for checking momentum depends on optimizer 
 momentum = [0.0, 0.2, 0.4, 0.6, 0.8, 0.9]
 learn_rate = [0.0005, 0.001, 0.01, 0.1, 0.2, 0.3]
 dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-weight_constraint=[1, 2, 3, 4, 5]
 neurons = [1, 2, 4, 8, 16, 32, 64]
 init = ['uniform', 'lecun_uniform', 'normal', 'zero', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform']
-#manual change needed to check differences in performance
+#manual change needed to check differences in optimizer performance
 optimizer = [ 'SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
-
 epochs= [10, 50, 100, 150]
-batch_size = [10, 20, 40, 50] # add 5, 10, 20, 40, 60, 80, 100 etc
-param_grid = dict(epochs=[1], batch_size=[50],
+batch_size = [10, 20, 40, 50]
+
+param_grid = dict(epochs=epochs, batch_size=batch_size,
                   unitsL1=neurons, unitsL3=neurons, unitsL5=neurons,
                   kernel_initL1=init, kernel_initL3=init, kernel_initL5=init,
                   activationL1=activation, activationL3=activation, activationL5=activation,
@@ -143,22 +144,22 @@ grid_result = grid.fit(x_train.values, y_train.values)
 
 # Summary
 print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-
 """
+
 
 model = keras.Sequential()
 model.add(keras.layers.Dense(16,
                              kernel_initializer='uniform',
                              activation='relu'))
-model.add(keras.layers.Dropout(0.1))
+model.add(keras.layers.Dropout(0.9))
 model.add(keras.layers.Dense(8,
                              kernel_initializer=tf.initializers.truncated_normal,
                              activation='relu'))
-model.add(keras.layers.Dropout(0.1))
+model.add(keras.layers.Dropout(0.9))
 model.add(keras.layers.Dense(1,
                              kernel_initializer='uniform',
                              activation='sigmoid'))
-model.compile(optimizer=tf.train.AdamOptimizer(0.005),
+model.compile(optimizer=tf.train.AdamOptimizer(0.3),
               loss = 'binary_crossentropy',
               metrics=['accuracy'])
 model.fit(x_train.values, y_train.values, epochs=150, verbose=1, validation_split=0.2,
@@ -169,3 +170,5 @@ model.fit(x_train.values, y_train.values, epochs=150, verbose=1, validation_spli
                                             
 accuracy = model.evaluate(x_test.values, y_test.values, batch_size=50, verbose=1)[1]
 print('Test accuracy:', accuracy*100)
+
+
