@@ -8,18 +8,22 @@ Created on Wed Jan  2 22:19:37 2019
 
 import tensorflow as tf
 from tensorflow import keras
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.optimizers import SGD
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import sklearn as sk #this is scikit learn
 from sklearn import preprocessing
 from sklearn import model_selection
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GridSearchCV
 import os
 
 #deals with kernel death
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-#csv file is 150mb which is too large to upload, contact me for the data
+#csv file is 150mb which is too large to upload, contact me for data
 dataFrame = pd.read_csv('/Users/KushDani/Downloads/creditcard.csv')
 print(dataFrame.head())
 
@@ -74,35 +78,94 @@ x_train, x_test, y_train, y_test = sk.model_selection.train_test_split(x_undersa
 #print(len(x_train), len(x_test))
 #print(len(y_train[y_train['Class'] == 1]), len(y_train[y_train['Class'] == 0]))
 
-model = keras.Sequential()
+#COMMENTED CODE BELOW IS FOR HYPERPARAMETER OPTIMIZATION
+"""
+def create_model(unitsL1=16, unitsL3=8, unitsL5=1,
+                 kernel_initL1='uniform', kernel_initL3=tf.initializers.truncated_normal, kernel_initL5='uniform',
+                 activationL1='relu', activationL3='relu', activationL5='sigmoid',
+                 drop=0.1,
+                 #optimizer=tf.train.AdamOptimizer(0.0005),
+                 lr=0.0005):
+    
+    model = keras.Sequential()
 
+    model.add(keras.layers.Dense(unitsL1,
+                             kernel_initializer=kernel_initL1,
+                             activation=activationL1))
+
+    model.add(keras.layers.Dropout(drop))
+
+    model.add(keras.layers.Dense(unitsL3,
+                             kernel_initializer=kernel_initL3,
+                             activation=activationL3))
+
+    model.add(keras.layers.Dropout(drop))
+
+    model.add(keras.layers.Dense(unitsL5,
+                             kernel_initializer=kernel_initL5,
+                             activation=activationL5))
+
+    model.compile(optimizer=tf.train.AdamOptimizer(lr),
+              loss = 'binary_crossentropy',
+              metrics=['accuracy'])
+    
+    return model
+
+model = KerasClassifier(build_fn=create_model, batch_size=50, epochs=50)
+
+#GRID-SEARCH PREPARATION
+activation =  ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear'] # softmax, softplus, softsign
+#need for checking depends on optimizer 
+momentum = [0.0, 0.2, 0.4, 0.6, 0.8, 0.9]
+learn_rate = [0.0005, 0.001, 0.01, 0.1, 0.2, 0.3]
+dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+weight_constraint=[1, 2, 3, 4, 5]
+neurons = [1, 2, 4, 8, 16, 32, 64]
+init = ['uniform', 'lecun_uniform', 'normal', 'zero', 'glorot_normal', 'glorot_uniform', 'he_normal', 'he_uniform']
+#manual change needed to check differences in performance
+optimizer = [ 'SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
+
+epochs= [10, 50, 100, 150]
+batch_size = [10, 20, 40, 50] # add 5, 10, 20, 40, 60, 80, 100 etc
+param_grid = dict(epochs=[1], batch_size=[50],
+                  unitsL1=neurons, unitsL3=neurons, unitsL5=neurons,
+                  kernel_initL1=init, kernel_initL3=init, kernel_initL5=init,
+                  activationL1=activation, activationL3=activation, activationL5=activation,
+                  drop=dropout_rate,
+                  lr=learn_rate)
+
+#Search/Fit parameters
+grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1)
+###################################################################
+#Current memory on my computer is not sufficient to run grid search
+
+grid_result = grid.fit(x_train.values, y_train.values)
+
+# Summary
+print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+
+"""
+
+model = keras.Sequential()
 model.add(keras.layers.Dense(16,
                              kernel_initializer='uniform',
                              activation='relu'))
-
 model.add(keras.layers.Dropout(0.1))
-
 model.add(keras.layers.Dense(8,
                              kernel_initializer=tf.initializers.truncated_normal,
                              activation='relu'))
-
 model.add(keras.layers.Dropout(0.1))
-
 model.add(keras.layers.Dense(1,
                              kernel_initializer='uniform',
                              activation='sigmoid'))
-
-model.compile(optimizer=tf.train.AdamOptimizer(0.0005),
+model.compile(optimizer=tf.train.AdamOptimizer(0.005),
               loss = 'binary_crossentropy',
               metrics=['accuracy'])
-
-model.fit(x_train.values, y_train.values, epochs=150, verbose=1, validation_split=0.2)
-          #callbacks=[keras.callbacks.EarlyStopping(monitor='acc',
-                                                    #patience=10)])
+model.fit(x_train.values, y_train.values, epochs=150, verbose=1, validation_split=0.2,
+          callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                    patience=20)])
                                                     
 #print(model.summary())
                                             
 accuracy = model.evaluate(x_test.values, y_test.values, batch_size=50, verbose=1)[1]
 print('Test accuracy:', accuracy*100)
-
-
